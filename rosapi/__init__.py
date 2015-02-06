@@ -205,8 +205,8 @@ class BaseRouterboardResource(object):
 
     def call(self, command, set_kwargs, query_kwargs=None):
         query_kwargs = query_kwargs or {}
-        query_arguments = self._prepare_arguments(True, **query_kwargs)
-        set_arguments = self._prepare_arguments(False, **set_kwargs)
+        query_arguments = self._prepare_arguments(True, query_kwargs)
+        set_arguments = self._prepare_arguments(False, set_kwargs)
         query = ([('%s/%s' % (self.namespace, command)).encode('ascii')] +
                  query_arguments + set_arguments)
         response = self.api.api_client.talk(query)
@@ -219,7 +219,7 @@ class BaseRouterboardResource(object):
         return output
 
     @staticmethod
-    def _prepare_arguments(is_query, **kwargs):
+    def _prepare_arguments(is_query, kwargs):
         command_arguments = []
         for key, value in kwargs.items():
             if key in ['id', 'proplist']:
