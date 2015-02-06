@@ -203,10 +203,10 @@ class BaseRouterboardResource(object):
         self.api = api
         self.namespace = namespace
 
-    def call(self, command, set_kwargs, query_kwargs=None):
-        query_kwargs = query_kwargs or {}
-        query_arguments = self._prepare_arguments(True, query_kwargs)
-        set_arguments = self._prepare_arguments(False, set_kwargs)
+    def call(self, command, set_kwargs, query_args=None):
+        query_args = query_args or []
+        query_arguments = self._prepare_arguments(True, query_args)
+        set_arguments = self._prepare_arguments(False, set_kwargs.items())
         query = ([('%s/%s' % (self.namespace, command)).encode('ascii')] +
                  query_arguments + set_arguments)
         response = self.api.api_client.talk(query)
@@ -219,9 +219,9 @@ class BaseRouterboardResource(object):
         return output
 
     @staticmethod
-    def _prepare_arguments(is_query, kwargs):
+    def _prepare_arguments(is_query, args):
         command_arguments = []
-        for key, value in kwargs.items():
+        for key, value in args:
             if key in ['id', 'proplist']:
                 key = '.%s' % key
             key = key.replace('_', '-')
@@ -241,11 +241,31 @@ class BaseRouterboardResource(object):
             elements.append((key, value))
         return dict(elements)
 
-    def get(self, **kwargs):
-        return self.call('print', {}, kwargs)
+    def get(self, *args, **kwargs):
+        """
+        Accepts multiple parameters, each should be a key-value pair.
+        For example, the following query:
+        
+        /interface/print
+        ?type=ether
+        ?type=vlan
+        
+        Would be called as:
+        >>> resource.get(('type', 'ether'), ('type', 'vlan'))
 
-    def detailed_get(self, **kwargs):
-        return self.call('print', {'detail': b''}, kwargs)
+        This syntax is used because order of query words is significant
+        (according to the Routerboard API documentation), and since dicts
+        are inherently unordered, kwargs cannot be used here.
+
+        For compatibility, the old kwargs syntax is still accepted, but
+        parameters might be sent in any order.
+        """
+        args += tuple(kwargs.items())
+        return self.call('print', {}, args)
+
+    def detailed_get(self, *args, **kwargs):
+        args += tuple(kwargs.items())
+        return self.call('print', {'detail': b''}, args)
 
     def set(self, **kwargs):
         return self.call('set', kwargs)
@@ -258,21 +278,22 @@ class BaseRouterboardResource(object):
 
 
 class RouterboardResource(BaseRouterboardResource):
-    def detailed_get(self, **kwargs):
-        return self.call('print', {'detail': ''}, kwargs)
+    def detailed_get(self, *args, **kwargs):
+        args += tuple(kwargs.items())
+        return self.call('print', {'detail': ''}, args)
 
-    def call(self, command, set_kwargs, query_kwargs=None):
-        query_kwargs = query_kwargs or {}
+    def call(self, command, set_kwargs, query_args=None):
+        query_args = query_args or []
         result = super(RouterboardResource, self).call(
-            command, self._encode_kwargs(set_kwargs),
-            self._encode_kwargs(query_kwargs))
+            command, dict(self._encode_items(set_kwargs.items())),
+            self._encode_items(query_args))
         for item in result:
             for k in item:
                 item[k] = item[k].decode('ascii')
         return result
 
-    def _encode_kwargs(self, kwargs):
-        return dict((k, v.encode('ascii')) for k, v in kwargs.items())
+    def _encode_items(self, items):
+        return [(k, v.encode('ascii')) for k, v in items]
 
 
 class RouterboardAPI(object):
