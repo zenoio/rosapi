@@ -226,8 +226,12 @@ class BaseRouterboardResource(object):
                 key = '.%s' % key
             key = key.replace('_', '-')
             selector_char = '?' if is_query else '='
-            command_arguments.append(
-                ('%s%s=' % (selector_char, key)).encode('ascii') + value)
+            if is_query and value is None:
+                # support valueless queries like '?name' which checks if property 'name' exists
+                command_arguments.append(('?%s' % (key,)).encode('ascii'))
+            else:
+                command_arguments.append(
+                    ('%s%s=' % (selector_char, key)).encode('ascii') + value)
 
         return command_arguments
 
@@ -249,11 +253,16 @@ class BaseRouterboardResource(object):
         /interface/print
         ?type=ether
         ?type=vlan
+        ?#|
         
         Would be called as:
-        >>> resource.get(('type', 'ether'), ('type', 'vlan'))
+        >>> resource.get( ('type', 'ether'), ('type', 'vlan'), ('#|', None) )
 
-        This syntax is used because order of query words is significant
+        (Note: the #| syntax ORs the result of the previous two queries together,
+        thus this is a query for "type=ether OR type=vlan". Correct order of query
+        words is required for this stack-based syntax to work.)
+
+        This parameter syntax is used because order of query words is significant
         (according to the Routerboard API documentation), and since dicts
         are inherently unordered, kwargs cannot be used here.
 
