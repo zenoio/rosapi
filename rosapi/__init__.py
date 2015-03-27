@@ -202,6 +202,7 @@ class BaseRouterboardResource(object):
     def __init__(self, api, namespace):
         self.api = api
         self.namespace = namespace
+        self.ret = None
 
     def call(self, command, set_kwargs, query_args=None):
         query_args = query_args or []
@@ -215,6 +216,8 @@ class BaseRouterboardResource(object):
         for response_type, attributes in response:
             if response_type == b'!re':
                 output.append(self._remove_first_char_from_keys(attributes))
+            if response_type == b'!done': 
+                self.ret = attributes['ret'] if 'ret' in attributes else None
 
         return output
 
@@ -276,6 +279,11 @@ class BaseRouterboardResource(object):
         args += tuple(kwargs.items())
         return self.call('print', {'detail': b''}, args)
 
+    def count(self, *args, **kwargs):
+        args += tuple(kwargs.items())
+        self.call('print', {'count-only': b''}, args)
+        return int(self.ret)
+
     def set(self, **kwargs):
         return self.call('set', kwargs)
 
@@ -291,6 +299,11 @@ class RouterboardResource(BaseRouterboardResource):
         args += tuple(kwargs.items())
         return self.call('print', {'detail': ''}, args)
 
+    def count(self, *args, **kwargs):
+        args += tuple(kwargs.items())
+        self.call('print', {'count-only': ''}, args)
+        return int(self.ret)
+
     def call(self, command, set_kwargs, query_args=None):
         query_args = query_args or []
         result = super(RouterboardResource, self).call(
@@ -302,7 +315,7 @@ class RouterboardResource(BaseRouterboardResource):
         return result
 
     def _encode_items(self, items):
-        return [(k, v.encode('ascii')) for k, v in items]
+        return [(k, v.encode('ascii') if v else b'') for k, v in items]
 
 
 class RouterboardAPI(object):
